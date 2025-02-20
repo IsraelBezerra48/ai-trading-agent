@@ -1,7 +1,15 @@
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from browser_use import Agent, Controller
-import asyncio, time
+from playwright.async_api import async_playwright
+import time
 from dotenv import load_dotenv
+import os, asyncio
+import logging
+import nest_asyncio
+nest_asyncio.apply()
+
+
+logging.basicConfig(level=logging.DEBUG)
 load_dotenv()
 
 timestamp = int(time.time())
@@ -21,18 +29,36 @@ Wait until the modal disappears, then reload the page every 2 seconds until you 
 When you see it, visit the watchlist, then visit each symbol in the watchlist and buy 2 shares for 5 dollars a share.
 """
 
-perplexity_prompt = f"""
-Go to https://www.perplexity.ai/finance/TSLA and extract information about their most recent earnings.
+google_prompt = f"""
+Go to https://www.google.com and search for chatgpt.
 """
 
+async def open_browser():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)  # Abre o navegador visível
+        page = await browser.new_page()
+        await asyncio.sleep(5)  # Espera para visualizar a interação
+        await browser.close()
 
 async def main():
-    agent = Agent(
-        task=perplexity_prompt,
-        llm=ChatOpenAI(model="gpt-4o")
-    )
-    result = await agent.run()
-    
-    print(result)
-		
-asyncio.run(main())
+    try:
+        agent = Agent(
+            task=google_prompt,
+            llm=ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp"),
+        )
+        result = await agent.run()
+        print(result)
+
+        # Abre o navegador Playwright
+        await open_browser()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    loop.run_until_complete(main())
